@@ -1,0 +1,89 @@
+##Coursera: Practical Machine Learning
+### Human Activity Recognition
+### Synopsis
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
+The goal of this project is to predict the manner how people did the exercise.  
+
+#Loading dataset
+```{r}
+library(caret)
+# trainDataSetPath <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+# download.file(trainDataSetPath, destfile="./trainData.csv")
+data <- read.csv("trainData.csv")
+```
+## Preprocessing data
+Here, train data is preprocessed and insignificant variables are removed. Variables that can considered as of no use will be the one whose variance will be approximately zero. so, all such features should be removed.
+
+```{r}
+zeroVariancefeature <- nearZeroVar(data)
+data <- data[, -zeroVariancefeature]
+```
+
+##Splitting data into train and test data set
+Now, the unnecessary features have been removed. So, data can be splitted into train and test set. We divide dataset into ratio of 70:30.
+```{r}
+set.seed(100)
+inTrain <- createDataPartition(y=data$classe, p=0.7, list = FALSE)
+training <- data[inTrain,]
+testing <- data[-inTrain,]
+```
+
+## Model Building
+A model will be generated using training data generated in last step.
+Random Forest model will be made.
+
+```{r}
+# instruct train to use 3-fold CV to select optimal tuning parameters
+fitControl <- trainControl(method="cv", number=3, verboseIter=F)
+
+# fit model on ptrain1
+fit <- train(classe ~ ., data=training, method="rf", trControl=fitControl)
+
+# printing final model to see tuning parameters it chose
+fit$finalModel
+```
+
+From the model details it can be seen clearly that 500 models were created and at each split 121 variables were tried. Also, the error rate is very low.
+
+## Model evaluation
+In order to check efficiency of this model we must train our testing data with the built model.
+```{r}
+## removing if there are any NA values present in testing records.
+testing <- na.omit(testing)
+
+## using model to make prediction for testing dataset
+predictions <- predict(fit, newdata=testing)
+
+## confusion matrix to get estimate of error
+confusionMatrix(testing$classe, predictions)
+
+```
+The accuracy of prediction by Random Forest model is very close to 1.
+
+
+## Predicting testing data via this model
+
+```{r}
+testingDataSetPath <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(testingDataSetPath, destfile="./testingData.csv")
+testData <- read.csv("./testingData.csv")
+testData <- testData[, -zeroVariancefeature]
+# predict on test set
+preds <- predict(fit, newdata=ptest)
+
+# convert predictions to character vector
+preds <- as.character(preds)
+
+# create function to write predictions to files
+pml_write_files <- function(x) {
+    n <- length(x)
+    for(i in 1:n) {
+        filename <- paste0("problem_id_", i, ".txt")
+        write.table(x[i], file=filename, quote=F, row.names=F, col.names=F)
+    }
+}
+
+# create prediction files to submit
+pml_write_files(preds)
+```
